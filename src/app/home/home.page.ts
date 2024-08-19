@@ -19,10 +19,11 @@ export class HomePage implements OnInit, AfterViewInit {
     const ruta = ref(this.database, 'voltaje/voltios');
     onValue(ruta, (snapshot) => {
       const valores_db = snapshot.val();
-      const mensajes: { panel: string, voltaje: number | null, tiempo: string }[] = [];
+      const mensajes: { panel: string, voltaje: number | null, tiempo: string, tiempoOrdenable: Date }[] = [];
       this.mensajesAgrupados = {};
       this.promediosPorFecha = {};
-
+  
+      // Recopilamos los mensajes en un array
       for (const key in valores_db) {
         if (valores_db.hasOwnProperty(key)) {
           const { message, sender } = valores_db[key];
@@ -33,20 +34,47 @@ export class HomePage implements OnInit, AfterViewInit {
           const voltajeRaw = match ? parseInt(match[0], 10) : null;
           const voltaje = voltajeRaw !== null ? this.mapVoltaje(voltajeRaw) : null;
           const tiempo = parts.length > 0 ? parts[0].trim() : '';
-          const fecha = this.extraerFecha(tiempo);
+  
+          // Convertimos el tiempo a un objeto Date para ordenar
+          const tiempoOrdenable = this.convertirATiempoOrdenable(tiempo);
           const panel = this.getPanelFromSender(sender);
-
-          if (!this.mensajesAgrupados[fecha]) {
-            this.mensajesAgrupados[fecha] = [];
-          }
-
-          this.mensajesAgrupados[fecha].push({ panel, voltaje, tiempo });
+  
+          mensajes.push({ panel, voltaje, tiempo, tiempoOrdenable });
         }
       }
-
+  
+      // Ordenamos los mensajes por el campo `tiempoOrdenable`
+      mensajes.sort((a, b) => a.tiempoOrdenable.getTime() - b.tiempoOrdenable.getTime());
+  
+      // Agrupamos los mensajes por fecha
+      mensajes.forEach(mensaje => {
+        const fecha = this.extraerFecha(mensaje.tiempo);
+        if (!this.mensajesAgrupados[fecha]) {
+          this.mensajesAgrupados[fecha] = [];
+        }
+        this.mensajesAgrupados[fecha].push(mensaje);
+      });
+  
       this.calcularPromedios();
     });
   }
+  
+  // Función para convertir la cadena de tiempo a un objeto Date
+  convertirATiempoOrdenable(tiempo: string): Date {
+    // Ejemplo de formato: "24/08/18,22:48:08-20"
+    const regex = /(\d{2})\/(\d{2})\/(\d{2}),(\d{2}):(\d{2}):(\d{2})/;
+    const match = tiempo.match(regex);
+  
+    if (match) {
+      const [_, dia, mes, ano, hora, minuto, segundo] = match;
+      const fecha = new Date(`20${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`);
+      return fecha;
+    }
+  
+    return new Date(); // En caso de no poder parsear, devolvemos la fecha actual
+  }
+  
+  
 
   ngAfterViewInit() {
     this.generarGraficas();
