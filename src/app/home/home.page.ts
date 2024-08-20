@@ -87,7 +87,7 @@ export class HomePage implements OnInit, AfterViewInit {
   }
 
   mapVoltaje(voltajeRaw: number): number {
-    const mappedVoltaje = voltajeRaw * 0.065;
+    const mappedVoltaje = voltajeRaw * 0.062;
     return parseFloat(mappedVoltaje.toFixed(2));
   }
 
