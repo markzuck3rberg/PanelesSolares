@@ -94,9 +94,9 @@ export class HomePage implements OnInit, AfterViewInit {
   getPanelFromSender(sender: string): string {
     switch (sender) {
       case '+593982138667':
-        return 'Panel TUGULA';
-      case '+593996002370':
         return 'Panel CALEDONIA';
+      case '+593996002370':
+        return 'Panel TUGULA';
       default:
         return 'Panel desconocido';
     }
