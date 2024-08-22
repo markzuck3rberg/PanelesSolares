@@ -10,54 +10,60 @@ import { Chart, registerables } from 'chart.js';
 export class HomePage implements OnInit, AfterViewInit {
   mensajesAgrupados: { [fecha: string]: { panel: string, voltaje: number | null, tiempo: string }[] } = {};
   promediosPorFecha: { [fecha: string]: { panel: string, promedio: number }[] } = {};
-
+  charts: { [key: string]: Chart } = {}; // Asegúrate de que esta línea esté presente
+  
   constructor(private database: Database) {
     Chart.register(...registerables);
   }
 
   ngOnInit() {
     const ruta = ref(this.database, 'voltaje/voltios');
-    onValue(ruta, (snapshot) => {
-      const valores_db = snapshot.val();
-      const mensajes: { panel: string, voltaje: number | null, tiempo: string, tiempoOrdenable: Date }[] = [];
-      this.mensajesAgrupados = {};
-      this.promediosPorFecha = {};
-  
-      // Recopilamos los mensajes en un array
-      for (const key in valores_db) {
-        if (valores_db.hasOwnProperty(key)) {
-          const { message, sender } = valores_db[key];
-          const parts = message.split('"');
-          const voltagePart = parts.length > 1 ? parts[1].trim() : '';
-          const regex = /\d+$/;
-          const match = voltagePart.match(regex);
-          const voltajeRaw = match ? parseInt(match[0], 10) : null;
-          const voltaje = voltajeRaw !== null ? this.mapVoltaje(voltajeRaw) : null;
-          const tiempo = parts.length > 0 ? parts[0].trim() : '';
-  
-          // Convertimos el tiempo a un objeto Date para ordenar
-          const tiempoOrdenable = this.convertirATiempoOrdenable(tiempo);
-          const panel = this.getPanelFromSender(sender);
-  
-          mensajes.push({ panel, voltaje, tiempo, tiempoOrdenable });
+    const actualizarDatos = () => {
+      onValue(ruta, (snapshot) => {
+        const valores_db = snapshot.val();
+        const mensajes: { panel: string, voltaje: number | null, tiempo: string, tiempoOrdenable: Date }[] = [];
+        this.mensajesAgrupados = {};
+        this.promediosPorFecha = {};
+    
+        // Recopilamos los mensajes en un array
+        for (const key in valores_db) {
+          if (valores_db.hasOwnProperty(key)) {
+            const { message, sender } = valores_db[key];
+            const parts = message.split('"');
+            const voltagePart = parts.length > 1 ? parts[1].trim() : '';
+            const regex = /\d+$/;
+            const match = voltagePart.match(regex);
+            const voltajeRaw = match ? parseInt(match[0], 10) : null;
+            const voltaje = voltajeRaw !== null ? this.mapVoltaje(voltajeRaw) : null;
+            const tiempo = parts.length > 0 ? parts[0].trim() : '';
+    
+            // Convertimos el tiempo a un objeto Date para ordenar
+            const tiempoOrdenable = this.convertirATiempoOrdenable(tiempo);
+            const panel = this.getPanelFromSender(sender);
+    
+            mensajes.push({ panel, voltaje, tiempo, tiempoOrdenable });
+          }
         }
-      }
-  
-      // Ordenamos los mensajes por el campo `tiempoOrdenable`
-      mensajes.sort((a, b) => a.tiempoOrdenable.getTime() - b.tiempoOrdenable.getTime());
-  
-      // Agrupamos los mensajes por fecha
-      mensajes.forEach(mensaje => {
-        const fecha = this.extraerFecha(mensaje.tiempo);
-        if (!this.mensajesAgrupados[fecha]) {
-          this.mensajesAgrupados[fecha] = [];
-        }
-        this.mensajesAgrupados[fecha].push(mensaje);
+    
+        // Ordenamos los mensajes por el campo `tiempoOrdenable`
+        mensajes.sort((a, b) => a.tiempoOrdenable.getTime() - b.tiempoOrdenable.getTime());
+    
+        // Agrupamos los mensajes por fecha
+        mensajes.forEach(mensaje => {
+          const fecha = this.extraerFecha(mensaje.tiempo);
+          if (!this.mensajesAgrupados[fecha]) {
+            this.mensajesAgrupados[fecha] = [];
+          }
+          this.mensajesAgrupados[fecha].push(mensaje);
+        });
+    
+        this.calcularPromedios();
+        this.generarGraficas(); // Regenerar las gráficas después de actualizar los datos
       });
-  
-      this.calcularPromedios();
-    });
-  }
+    };
+    actualizarDatos(); // Cargar inicialmente
+    setInterval(actualizarDatos, 60000); // Actualizar cada 60 segundos
+  };
   
   // Función para convertir la cadena de tiempo a un objeto Date
   convertirATiempoOrdenable(tiempo: string): Date {
@@ -74,6 +80,16 @@ export class HomePage implements OnInit, AfterViewInit {
     return new Date(); // En caso de no poder parsear, devolvemos la fecha actual
   }
   
+  getPromedioPorPanel(fecha: string, panel: string): number {
+    const promediosPaneles = this.promediosPorFecha[fecha];
+    if (promediosPaneles) {
+      const panelData = promediosPaneles.find(p => p.panel === panel);
+      if (panelData) {
+        return panelData.promedio;
+      }
+    }
+    return 0; // En caso de no encontrar datos, devuelve 0
+  }
   
 
   ngAfterViewInit() {
@@ -130,17 +146,32 @@ export class HomePage implements OnInit, AfterViewInit {
   }
 
   calcularPromedio(voltajes: number[]): number {
-    if (voltajes.length === 0) return 0;
-    const suma = voltajes.reduce((acc, val) => acc + val, 0);
-    return parseFloat((suma / voltajes.length).toFixed(2));
+    const voltajesFiltrados = voltajes.filter(v => v > 0);
+    if (voltajesFiltrados.length === 0) return 0;
+    const suma = voltajesFiltrados.reduce((acc, val) => acc + val, 0);
+    return parseFloat((suma / voltajesFiltrados.length).toFixed(2));
   }
+  convertirAVatios(voltajePromedio: number): number {
+    const vatios = (voltajePromedio ** 2) / 16;
+    return parseFloat(vatios.toFixed(2));
+  }
+    
 
   generarGraficas() {
+    // Eliminar las gráficas anteriores antes de regenerarlas
+    for (const chartKey in this.charts) {
+      if (this.charts.hasOwnProperty(chartKey)) {
+        this.charts[chartKey].destroy();
+      }
+    }
+    this.charts = {}; // Limpiar el mapa de gráficas
+
     setTimeout(() => {
       for (const fecha in this.promediosPorFecha) {
         if (this.promediosPorFecha.hasOwnProperty(fecha)) {
           this.promediosPorFecha[fecha].forEach(panelData => {
-            this.generarGrafica(`chart-${fecha}-${panelData.panel}`, panelData.panel, panelData.promedio);
+            const canvasId = `chart-${fecha}-${panelData.panel}`;
+            this.generarGrafica(canvasId, panelData.panel, panelData.promedio);
           });
         }
       }
