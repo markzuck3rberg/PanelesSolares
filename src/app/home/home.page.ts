@@ -152,7 +152,7 @@ export class HomePage implements OnInit, AfterViewInit {
     return parseFloat((suma / voltajesFiltrados.length).toFixed(2));
   }
   convertirAVatios(voltajePromedio: number): number {
-    const vatios = (voltajePromedio ** 2) / 16;
+    const vatios = ((voltajePromedio ** 2) / 24)*2;//18
     return parseFloat(vatios.toFixed(2));
   }
     
