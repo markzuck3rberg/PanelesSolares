@@ -21,7 +21,7 @@
           <p>No hay datos para el Panel TUGULA en esta fecha.</p>
         </ng-template>
       </div>
-
+  
       <!-- Panel CALEDONIA -->
       <div class="columna">
         <h3>
@@ -37,7 +37,24 @@
           <p>No hay datos para el Panel CALEDONIA en esta fecha.</p>
         </ng-template>
       </div>
+  
+      <!-- Panel SAN CRISTOBAL -->
+      <div class="columna">
+        <h3>
+          Panel SAN CRISTOBAL - {{ convertirAVatios(getPromedioPorPanel(fecha, 'Panel SAN CRISTOBAL')) }} W
+        </h3>
+        <canvas id="chart-{{fecha}}-Panel SAN CRISTOBAL"></canvas>
+        <ion-list *ngIf="getPanelMessages(fecha, 'Panel SAN CRISTOBAL').length > 0; else noData3">
+          <ion-item *ngFor="let mensaje of getPanelMessages(fecha, 'Panel SAN CRISTOBAL')">
+            <p>Voltaje: {{ mensaje.voltaje }} V<br>Tiempo: {{ mensaje.tiempo }}</p>
+          </ion-item>
+        </ion-list>
+        <ng-template #noData3>
+          <p>No hay datos para el Panel SAN CRISTOBAL en esta fecha.</p>
+        </ng-template>
+      </div>
     </div>
   </ng-container>
+  
 </ion-content>
 

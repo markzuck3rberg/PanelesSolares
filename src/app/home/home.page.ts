@@ -113,10 +113,13 @@ export class HomePage implements OnInit, AfterViewInit {
         return 'Panel CALEDONIA';
       case '+593996002370':
         return 'Panel TUGULA';
+      case '+593962380047':
+        return 'Panel SAN CRISTOBAL';
       default:
         return 'Panel desconocido';
     }
   }
+  
 
   calcularPromedios() {
     for (const fecha in this.mensajesAgrupados) {
